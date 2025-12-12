@@ -3,6 +3,8 @@
 #include "driver/uart.h"
 #include "string.h"
 #include "math.h"
+#include "nvsManager.h"
+
 
 #define DWIN_UART  UART_NUM_1
 
@@ -35,4 +37,4 @@ void start_dwin_task();
 void start_animDisp_task();
 
 void display_set_page(uint16_t page);
-int8_t loadTheme(void);
+// int8_t loadTheme(void);

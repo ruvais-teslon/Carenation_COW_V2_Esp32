@@ -3,8 +3,6 @@
 #include "freertos/task.h"
 #include "freertos/queue.h"
 #include "dist.h"
-#include "nvs_flash.h"
-#include "nvs.h"
 
 extern QueueHandle_t motorQueue;
 
@@ -39,11 +37,10 @@ typedef enum {
     MOTOR_SLEEP = 0
 } motor_sleepcntrl_t;
 
+void motorInit();
 void motor_forward();
 void motor_backward();
 void motor_stop(void);
 void run_calibration();
 void start_motor_task();
-void save_preset(int8_t id, float value);
-float load_preset(int8_t id);
 void beepHMI();

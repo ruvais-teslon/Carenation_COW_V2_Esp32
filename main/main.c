@@ -6,17 +6,13 @@
 #include "esp_spi_flash.h"
 #include "driver/uart.h"
 #include "driver/gpio.h"
-#include "driver/ledc.h"
 #include "string.h"
 #include "esp_log.h"
 #include "esp_vfs_dev.h"
-#include "nvs_flash.h"
-#include "nvs.h"
-#include "driver/adc.h"
-#include "esp_adc_cal.h"
 #include "DWIN_HMI.h"
 #include "motorControl.h"
 #include "dist.h"
+#include "nvsManager.h"
 
 #define BUF_SIZE (1024)
 
@@ -88,82 +84,40 @@ void gpioInit()
     gpio_set_level(SLP_PIN, LOW);
 }
 
-void motorInit()
-{
-    // --- Configure PWM using LEDC ---
-    ledc_timer_config_t ledc_timer = {
-        .speed_mode = LEDC_LOW_SPEED_MODE,
-        .duty_resolution = LEDC_TIMER_10_BIT, // 0–1023
-        .timer_num = LEDC_TIMER_0,
-        .freq_hz = 20000, // 20 kHz PWM
-        .clk_cfg = LEDC_AUTO_CLK};
-    ledc_timer_config(&ledc_timer);
-
-    ledc_channel_config_t ledc_channel = {
-        .gpio_num = PWM_PIN,
-        .speed_mode = LEDC_LOW_SPEED_MODE,
-        .channel = LEDC_CHANNEL_0,
-        .intr_type = LEDC_INTR_DISABLE,
-        .timer_sel = LEDC_TIMER_0,
-        .duty = 0, // Start stopped
-        .hpoint = 0};
-    ledc_channel_config(&ledc_channel);
-
-    motor_stop();
-}
-
-void init_nvs()
-{
-    esp_err_t err = nvs_flash_init();
-    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND)
-    {
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        ESP_ERROR_CHECK(nvs_flash_init());
-    }
-}
-
-void adc_init()
-{
-    adc1_config_width(ADC_WIDTH_BIT_12);
-    adc1_config_channel_atten(ADC1_CHANNEL_2, ADC_ATTEN_DB_11);
-}
-
 void app_main(void)
 {
     // Inits
-    UartInit();
-    gpioInit();
-    motorInit();
-    init_nvs();
-    adc_init();
+    UartInit(); //UART Init
+    gpioInit(); //GPIO Init
+    motorInit(); //Motor Init
+    nvs_init(); //NonVolatile Memmory Init
+    adc_init(); //ADC Init
 
-    
-    motorQueue = xQueueCreate(10, sizeof(motor_cmd_t));
-    displayQueue = xQueueCreate(10, sizeof(display_msg_t));
+    motorQueue = xQueueCreate(10, sizeof(motor_cmd_t)); //Que Creation for Motor
+    displayQueue = xQueueCreate(10, sizeof(display_msg_t)); //Que Creation for Display
     // Starting Log
     ESP_LOGW("Esp32", "COWv1.2 ...");
 
-    int8_t theme = loadTheme();
-    if(theme == 1){
-        setPage(21);
-    }else{
-        setPage(18);
-    }
+    vTaskDelay(300); //Dwin Startup Delay
 
+    int8_t theme = loadTheme(); //load Theme From NVS
+    setPage(theme == 1 ? 21 : 18); //Set Page based on theme
+
+    //Load Limits from NVS 
     bottom_limit_mm = load_limit("limit_bottom");
     top_limit_mm = load_limit("limit_top");
     if (top_limit_mm == -1.0 || bottom_limit_mm == -1.0)
-    {  
+    {
         initial_calib = 1;
         run_calibration();
         initial_calib = 0;
     }
 
-    start_dwin_task();
-    start_motor_task();
-    start_distance_task();
-    start_animDisp_task();
+    start_dwin_task(); // Task to receive Data from dwin
 
-    
+    start_motor_task(); //Task to run Motors
 
+    start_distance_task(); //Task to find the distance
+
+    start_animDisp_task(); //Task to change 
 }

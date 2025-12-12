@@ -1,13 +1,41 @@
 #include "motorControl.h"
 #include "PC_DATA.h"
 #include "DWIN_HMI.h"
+#include "nvsManager.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
+#include "driver/ledc.h"
 
 motor_direction_t current_dir = MOTOR_DIR_FORWARD;
 bool calibrating = false;
 int8_t initial_calib = 0;
+
+
+void motorInit()
+{
+    // --- Configure PWM using LEDC ---
+    ledc_timer_config_t ledc_timer = {
+        .speed_mode = LEDC_LOW_SPEED_MODE,
+        .duty_resolution = LEDC_TIMER_10_BIT, // 0–1023
+        .timer_num = LEDC_TIMER_0,
+        .freq_hz = 20000, // 20 kHz PWM
+        .clk_cfg = LEDC_AUTO_CLK};
+    ledc_timer_config(&ledc_timer);
+
+    ledc_channel_config_t ledc_channel = {
+        .gpio_num = PWM_PIN,
+        .speed_mode = LEDC_LOW_SPEED_MODE,
+        .channel = LEDC_CHANNEL_0,
+        .intr_type = LEDC_INTR_DISABLE,
+        .timer_sel = LEDC_TIMER_0,
+        .duty = 0, // Start stopped
+        .hpoint = 0};
+    ledc_channel_config(&ledc_channel);
+
+    motor_stop();
+}
+
 void motor_set_direction(motor_direction_t dir)
 {
     gpio_set_level(EN_PIN, dir);
@@ -188,48 +216,6 @@ void run_calibration()
         }
     }
     calibrating = false;
-}
-
-void save_preset(int8_t id, float value)
-{
-    char key[16];
-    snprintf(key, sizeof(key), "preset%d", id);
-    printf("Preset %d Saved = %f\r\n", id, value);
-    nvs_handle_t h;
-    nvs_open("settings", NVS_READWRITE, &h);
-    int32_t temp = (int32_t)(value * 1000);
-    printf("Saved %d\r\n", temp);
-    nvs_set_i32(h, key, temp);
-    nvs_commit(h);
-    nvs_close(h);
-}
-
-float load_preset(int8_t id)
-{
-    int32_t value = 0;
-    char key[16];
-    snprintf(key, sizeof(key), "preset%d", id);
-
-    nvs_handle_t h;
-    esp_err_t err = nvs_open("settings", NVS_READONLY, &h);
-    if (err != ESP_OK)
-    {
-        printf("NVS open failed\n");
-        return -1; // or default
-    }
-
-    err = nvs_get_i32(h, key, &value);
-
-    if (err == ESP_ERR_NVS_NOT_FOUND)
-    {
-        printf("%s not found in NVS\n", key);
-        nvs_close(h);
-        return -1; // treat missing as -1
-    }
-
-    nvs_close(h);
-    float f = value / 1000.0f;
-    return f;
 }
 
 void motor_task(void *arg)

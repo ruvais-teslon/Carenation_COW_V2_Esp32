@@ -9,6 +9,7 @@
 
 
 extern float bottom_limit_mm,top_limit_mm,center_mm;
+void adc_init();
 void save_limit(const char *key, float value);
 float load_limit(const char *key);
 int8_t hit_bottom_limit();

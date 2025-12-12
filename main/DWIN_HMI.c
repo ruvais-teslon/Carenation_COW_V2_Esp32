@@ -71,6 +71,7 @@ static inline int constrainInt(int x, int a, int b)
     else
         return x;
 }
+
 void updatePackMeasurementsOnHMI(float voltage, float current, float soc)
 {
     char buffer[16];
@@ -116,46 +117,82 @@ void updatePackTempOnHMI(int tempMin, int tempMax, float tempAverage)
     setText(0x3000, buffer);
 }
 
-void saveTheme(int8_t theme)
+float mapf(float x, float in_min, float in_max, float out_min, float out_max)
 {
-    nvs_handle_t h;
-
-    if (nvs_open("settings", NVS_READWRITE, &h) != ESP_OK)
-    {
-        printf("Failed to open NVS for saving theme\n");
-        return;
-    }
-
-    nvs_set_i8(h, "theme", theme);
-    nvs_commit(h);
-    nvs_close(h);
-
-    printf("Theme saved: %d\n", theme);
+    return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
 
-int8_t loadTheme(void)
+int constrain(int x, int a, int b)
 {
-    nvs_handle_t h;
-    int8_t theme = 1; // default theme = 1
+    if (x < a)
+        return a;
+    if (x > b)
+        return b;
+    return x;
+}
 
-    esp_err_t err = nvs_open("settings", NVS_READONLY, &h);
-    if (err != ESP_OK)
+int map_with_hysteresis(float height, int steps)
+{
+    static int prev_10 = -1;
+    static int prev_20 = -1;
+
+    int *prev;
+    if (steps == 10)
+        prev = &prev_10;
+    else if (steps == 20)
+        prev = &prev_20;
+    else
+        return 1;
+
+    float mapped = mapf(height, bottom_limit_mm, top_limit_mm, 0, steps - 1);
+    int newVal = constrain((int)mapped + 1, 1, steps);
+
+    if (*prev == -1)
     {
-        printf("Failed to open NVS for loading theme, using default\n");
-        return 1; // default to theme 1
+        *prev = newVal;
+        return newVal;
     }
 
-    err = nvs_get_i8(h, "theme", &theme);
+    float step_mm = (top_limit_mm - bottom_limit_mm) / (float)steps;
 
-    if (err == ESP_ERR_NVS_NOT_FOUND)
-    {
-        printf("Theme not found in NVS, using default\n");
-        theme = 1; // default
-    }
+    // FIXED, SYMMETRIC HYSTERESIS (e.g. 30% of step)
+    float hyst = 0.10f * step_mm;
 
-    nvs_close(h);
+    float zone_min = bottom_limit_mm + (*prev - 1) * step_mm;
+    float zone_max = zone_min + step_mm;
 
-    return theme;
+    if (height < (zone_min - hyst))
+        (*prev)--;
+    else if (height > (zone_max + hyst))
+        (*prev)++;
+
+    return constrain(*prev, 1, steps);
+}
+
+void display_set_page(uint16_t page)
+{
+    display_msg_t msg = {
+        .cmd = DISP_CMD_SET_PAGE,
+        .value = page};
+    xQueueSend(displayQueue, &msg, 0);
+}
+
+void display_set_text(uint16_t addr, const char *txt)
+{
+    display_msg_t msg = {
+        .cmd = DISP_CMD_SET_TEXT,
+        .addr = addr};
+    strncpy(msg.text, txt, sizeof(msg.text));
+    xQueueSend(displayQueue, &msg, 0);
+}
+
+void display_set_vp(uint16_t addr, uint16_t value)
+{
+    display_msg_t msg = {
+        .cmd = DISP_CMD_SET_VP,
+        .addr = addr,
+        .value = value};
+    xQueueSend(displayQueue, &msg, 0);
 }
 
 static void handle_preset_code(uint8_t code)
@@ -315,84 +352,6 @@ static void handle_preset_code(uint8_t code)
         long_press_action_done = false;
         return;
     }
-}
-
-float mapf(float x, float in_min, float in_max, float out_min, float out_max)
-{
-    return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
-}
-
-int constrain(int x, int a, int b)
-{
-    if (x < a)
-        return a;
-    if (x > b)
-        return b;
-    return x;
-}
-
-int map_with_hysteresis(float height, int steps)
-{
-    static int prev_10 = -1;
-    static int prev_20 = -1;
-
-    int *prev;
-    if (steps == 10)
-        prev = &prev_10;
-    else if (steps == 20)
-        prev = &prev_20;
-    else
-        return 1;
-
-    float mapped = mapf(height, bottom_limit_mm, top_limit_mm, 0, steps - 1);
-    int newVal = constrain((int)mapped + 1, 1, steps);
-
-    if (*prev == -1)
-    {
-        *prev = newVal;
-        return newVal;
-    }
-
-    float step_mm = (top_limit_mm - bottom_limit_mm) / (float)steps;
-
-    // FIXED, SYMMETRIC HYSTERESIS (e.g. 30% of step)
-    float hyst = 0.10f * step_mm;
-
-    float zone_min = bottom_limit_mm + (*prev - 1) * step_mm;
-    float zone_max = zone_min + step_mm;
-
-    if (height < (zone_min - hyst))
-        (*prev)--;
-    else if (height > (zone_max + hyst))
-        (*prev)++;
-
-    return constrain(*prev, 1, steps);
-}
-
-void display_set_page(uint16_t page)
-{
-    display_msg_t msg = {
-        .cmd = DISP_CMD_SET_PAGE,
-        .value = page};
-    xQueueSend(displayQueue, &msg, 0);
-}
-
-void display_set_text(uint16_t addr, const char *txt)
-{
-    display_msg_t msg = {
-        .cmd = DISP_CMD_SET_TEXT,
-        .addr = addr};
-    strncpy(msg.text, txt, sizeof(msg.text));
-    xQueueSend(displayQueue, &msg, 0);
-}
-
-void display_set_vp(uint16_t addr, uint16_t value)
-{
-    display_msg_t msg = {
-        .cmd = DISP_CMD_SET_VP,
-        .addr = addr,
-        .value = value};
-    xQueueSend(displayQueue, &msg, 0);
 }
 
 static void dwin_rx_task(void *arg)

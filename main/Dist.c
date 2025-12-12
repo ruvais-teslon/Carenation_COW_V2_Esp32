@@ -15,6 +15,12 @@ float top_limit_mm = 0;
 float bottom_limit_mm = 0;
 float center_mm = 0;
 
+void adc_init()
+{
+    adc1_config_width(ADC_WIDTH_BIT_12);
+    adc1_config_channel_atten(ADC1_CHANNEL_2, ADC_ATTEN_DB_11);
+}
+
 void save_limit(const char *key, float value)
 {
     nvs_handle_t h;
