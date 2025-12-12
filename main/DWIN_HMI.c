@@ -231,7 +231,7 @@ static void handle_preset_code(uint8_t code)
             if (!long_press_action_done)
             {
                 // SHORT PRESS → GO
-                preset1_mm = load_preset(1);
+                preset1_mm = loadPreset(1);
                 target_position_mm = preset1_mm;
 
                 motor_cmd_t cmd = MOTOR_CMD_GOTO_POSITION;
@@ -282,7 +282,7 @@ static void handle_preset_code(uint8_t code)
         {
             if (!long_press_action_done)
             {
-                preset2_mm = load_preset(2);
+                preset2_mm = loadPreset(2);
                 target_position_mm = preset2_mm;
 
                 motor_cmd_t cmd = MOTOR_CMD_GOTO_POSITION;
@@ -333,7 +333,7 @@ static void handle_preset_code(uint8_t code)
         {
             if (!long_press_action_done)
             {
-                preset3_mm = load_preset(3);
+                preset3_mm = loadPreset(3);
                 target_position_mm = preset3_mm;
 
                 motor_cmd_t cmd = MOTOR_CMD_GOTO_POSITION;

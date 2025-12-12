@@ -54,7 +54,7 @@ int8_t loadTheme(void)
     return theme;
 }
 
-void save_preset(int8_t id, float value)
+void savePreset(int8_t id, float value)
 {
     char key[16];
     snprintf(key, sizeof(key), "preset%d", id);
@@ -68,7 +68,7 @@ void save_preset(int8_t id, float value)
     nvs_close(h);
 }
 
-float load_preset(int8_t id)
+float loadPreset(int8_t id)
 {
     int32_t value = 0;
     char key[16];
@@ -95,3 +95,4 @@ float load_preset(int8_t id)
     float f = value / 1000.0f;
     return f;
 }
+

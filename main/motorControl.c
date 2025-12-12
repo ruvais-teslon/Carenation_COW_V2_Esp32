@@ -279,7 +279,7 @@ void motor_task(void *arg)
 
             case MOTOR_CMD_SAVE_POSITION:
             {
-                save_preset(selected_preset, current_height_mm);
+                savePreset(selected_preset, current_height_mm);
                 printf("Saving Presets\r\n");
                 int8_t theme = loadTheme();
                 display_set_page(theme == 1 ? 8 : 4);
