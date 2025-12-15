@@ -1,7 +1,5 @@
 #include <stdio.h>
 #include "sdkconfig.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 #include "esp_system.h"
 #include "esp_spi_flash.h"
 #include "driver/uart.h"
@@ -13,6 +11,7 @@
 #include "motorControl.h"
 #include "dist.h"
 #include "nvsManager.h"
+#include "PC_DATA.h"
 
 #define BUF_SIZE (1024)
 
@@ -25,8 +24,16 @@ QueueHandle_t displayQueue;
 void UartInit()
 {
     // --- Configure UART0 ---
-    uart_driver_install(UART_NUM_0, BUF_SIZE, 256, 0, NULL, 0);
-    uart_flush_input(UART_NUM_0); // clear any junk
+    uart_config_t uart0_config = {
+        .baud_rate = 9600,
+        .data_bits = UART_DATA_8_BITS,
+        .parity = UART_PARITY_DISABLE,
+        .stop_bits = UART_STOP_BITS_1,
+        .flow_ctrl = UART_HW_FLOWCTRL_DISABLE};
+
+    uart_param_config(UART_NUM_0, &uart0_config);
+    uart_driver_install(UART_NUM_0, BUF_SIZE, 0, 0, NULL, 0);
+    uart_flush_input(UART_NUM_0);
 
     // --- Configure UART1 (TX=GPIO17, RX=GPIO18) ---
     const uart_port_t uart1_num = DWIN_UART;
@@ -87,23 +94,38 @@ void gpioInit()
 void app_main(void)
 {
     // Inits
-    UartInit(); //UART Init
-    gpioInit(); //GPIO Init
-    motorInit(); //Motor Init
-    nvs_init(); //NonVolatile Memmory Init
-    adc_init(); //ADC Init
+    UartInit();  // UART Init
+    gpioInit();  // GPIO Init
+    motorInit(); // Motor Init
+    nvs_init();  // NonVolatile Memmory Init
+    adc_init();  // ADC Init
 
-    motorQueue = xQueueCreate(10, sizeof(motor_cmd_t)); //Que Creation for Motor
-    displayQueue = xQueueCreate(10, sizeof(display_msg_t)); //Que Creation for Display
+    motorQueue = xQueueCreate(10, sizeof(motor_cmd_t));     // Que Creation for Motor
+    displayQueue = xQueueCreate(10, sizeof(display_msg_t)); // Que Creation for Display
     // Starting Log
-    ESP_LOGW("Esp32", "COWv1.2 ...");
+    ESP_LOGE("TEST", "ERROR LOG visible");
+    ESP_LOGW("TEST", "WARN LOG visible");
+    ESP_LOGI("TEST", "INFO LOG visible");
+    printf("PRINTF visible\n");
 
-    vTaskDelay(300); //Dwin Startup Delay
+    vTaskDelay(300); // Dwin Startup Delay
 
-    int8_t theme = loadTheme(); //load Theme From NVS
-    setPage(theme == 1 ? 21 : 18); //Set Page based on theme
+    int8_t theme = loadTheme();    // load Theme From NVS
+    setPage(theme == 1 ? 21 : 18); // Set Page based on theme
 
-    //Load Limits from NVS 
+    char storedName[21];
+    if (loadDevicename(storedName, sizeof(storedName)))
+    {
+        display_device_name(0x1800, storedName);
+    }
+    else
+    {
+    const char *defaultName = "CarenationPC";
+    saveDevicename(defaultName);
+    display_device_name(0x1800, defaultName);
+    }
+
+    // Load Limits from NVS
     bottom_limit_mm = load_limit("limit_bottom");
     top_limit_mm = load_limit("limit_top");
     if (top_limit_mm == -1.0 || bottom_limit_mm == -1.0)
@@ -115,9 +137,11 @@ void app_main(void)
 
     start_dwin_task(); // Task to receive Data from dwin
 
-    start_motor_task(); //Task to run Motors
+    start_motor_task(); // Task to run Motors
 
-    start_distance_task(); //Task to find the distance
+    start_distance_task(); // Task to find the distance
 
-    start_animDisp_task(); //Task to change 
+    start_animDisp_task(); // Task to change
+
+    start_pc_task(); // TAsk to Communicate with PC
 }

@@ -93,7 +93,7 @@ void movetoCenter()
 
 void move_to_position(float target)
 {
-    printf("Target = %f, Current Height = %f\r\n", target, current_height_mm);
+    // printf("Target = %f, Current Height = %f\r\n", target, current_height_mm);
 
     bool going_up = (target > current_height_mm);
 
@@ -108,7 +108,7 @@ void move_to_position(float target)
         if (going_up && hit_top_limit())
         {
             motor_stop();
-            printf("Stopped: Top limit hit\n");
+            // printf("Stopped: Top limit hit\n");
             break;
         }
 
@@ -116,14 +116,14 @@ void move_to_position(float target)
         if (!going_up && hit_bottom_limit())
         {
             motor_stop();
-            printf("Stopped: Bottom limit hit\n");
+            // printf("Stopped: Bottom limit hit\n");
             break;
         }
 
         // Normal position comparison
         if (fabs(current_height_mm - target) < 0.1f)
         {
-            printf("Reached height: %f\n", current_height_mm);
+            // printf("Reached height: %f\n", current_height_mm);
             motor_stop();
             break;
         }
@@ -151,7 +151,7 @@ void run_calibration()
         vTaskDelay(pdMS_TO_TICKS(10));
     }
     vTaskDelay(pdMS_TO_TICKS(10));
-    printf("Reached Down\r\n");
+    // printf("Reached Down\r\n");
     motor_stop();
     vTaskDelay(pdMS_TO_TICKS(10));
     if (initial_calib)
@@ -159,7 +159,7 @@ void run_calibration()
         read_distance_mm();
     }
     bottom_limit_mm = current_height_mm;
-    printf("Bottom = %f\r\n", bottom_limit_mm);
+    // printf("Bottom = %f\r\n", bottom_limit_mm);
     save_limit("limit_bottom", bottom_limit_mm);
 
     // Move up
@@ -169,7 +169,7 @@ void run_calibration()
         vTaskDelay(pdMS_TO_TICKS(10));
     }
     vTaskDelay(pdMS_TO_TICKS(10));
-    printf("Reached Up\r\n");
+    // printf("Reached Up\r\n");
     motor_stop();
 
     vTaskDelay(pdMS_TO_TICKS(10));
@@ -181,7 +181,7 @@ void run_calibration()
         }
     }
     top_limit_mm = current_height_mm;
-    printf("Top = %f", top_limit_mm);
+    // printf("Top = %f", top_limit_mm);
     save_limit("limit_top", top_limit_mm);
 
     float center = (top_limit_mm + bottom_limit_mm) / 2;
@@ -280,7 +280,7 @@ void motor_task(void *arg)
             case MOTOR_CMD_SAVE_POSITION:
             {
                 savePreset(selected_preset, current_height_mm);
-                printf("Saving Presets\r\n");
+                // printf("Saving Presets\r\n");
                 int8_t theme = loadTheme();
                 display_set_page(theme == 1 ? 8 : 4);
                 beepHMI();
@@ -297,7 +297,7 @@ void motor_task(void *arg)
             }
 
             case MOTOR_CMD_CALIBRATE:
-                printf("Caliberating\r\n");
+                // printf("Caliberating\r\n");
                 run_calibration();
                 break;
             }

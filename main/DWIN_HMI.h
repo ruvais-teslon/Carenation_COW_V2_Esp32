@@ -4,7 +4,9 @@
 #include "string.h"
 #include "math.h"
 #include "nvsManager.h"
-
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/queue.h"
 
 #define DWIN_UART  UART_NUM_1
 
@@ -25,6 +27,7 @@ typedef enum {
     DISP_CMD_SET_VP
 } display_cmd_t;
 
+
 typedef struct {
     display_cmd_t cmd;
     uint16_t addr;      // For text or VP
@@ -37,4 +40,4 @@ void start_dwin_task();
 void start_animDisp_task();
 
 void display_set_page(uint16_t page);
-// int8_t loadTheme(void);
+void display_set_text(uint16_t addr, const char *txt);

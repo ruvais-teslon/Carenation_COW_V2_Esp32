@@ -21,53 +21,6 @@ void adc_init()
     adc1_config_channel_atten(ADC1_CHANNEL_2, ADC_ATTEN_DB_11);
 }
 
-void save_limit(const char *key, float value)
-{
-    nvs_handle_t h;
-    esp_err_t err;
-
-    err = nvs_open("settings", NVS_READWRITE, &h);
-    if (err != ESP_OK)
-    {
-        printf("NVS open failed\n");
-        return;
-    }
-    int32_t temp = (int32_t)(value * 1000); 
-    nvs_set_i32(h, key, temp);
-    nvs_commit(h);
-    nvs_close(h);
-
-    printf("Saved %s = %d\n", key, temp);
-}
-
-float load_limit(const char *key)
-{
-    int32_t value = -1;
-    nvs_handle_t h;
-    esp_err_t err;
-
-    err = nvs_open("settings", NVS_READONLY, &h);
-    if (err != ESP_OK)
-    {
-        printf("NVS open failed\n");
-        return -1.0;
-    }
-
-    err = nvs_get_i32(h, key, &value);
-    nvs_close(h);
-
-    if (err == ESP_ERR_NVS_NOT_FOUND)
-    {
-        printf("%s not found in NVS\n", key);
-        return -1.0;
-    }
-    float f = value / 1000.0f;
-    if( f < 3.0 || f > 20.0){
-        return -1.0;
-    }
-    return f;
-}
-
 int8_t hit_bottom_limit()
 {
     if (gpio_get_level(PROXIMITY_BOTTOM))

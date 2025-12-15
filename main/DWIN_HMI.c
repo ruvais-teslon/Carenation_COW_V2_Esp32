@@ -1,9 +1,6 @@
 #include "DWIN_HMI.h"
 #include "motorControl.h"
 #include "PC_DATA.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/queue.h"
 
 #define DWIN_VP_UPDOWN 0x50
 #define DWIN_VP_PRESETS 0x71
@@ -205,7 +202,7 @@ static void handle_preset_code(uint8_t code)
         selected_preset = 1;
         press_start_time = now;
         long_press_action_done = false;
-        printf("Pressed preset 1\n");
+        // printf("Pressed preset 1\n");
         return;
     }
 
@@ -219,7 +216,7 @@ static void handle_preset_code(uint8_t code)
             xQueueSend(motorQueue, &cmd, 0);
             long_press_action_done = true;
 
-            printf("SAVE preset 1 (long press)\n");
+            // printf("SAVE preset 1 (long press)\n");
         }
         return;
     }
@@ -237,11 +234,11 @@ static void handle_preset_code(uint8_t code)
                 motor_cmd_t cmd = MOTOR_CMD_GOTO_POSITION;
                 xQueueSend(motorQueue, &cmd, 0);
 
-                printf("GO preset 1 (short press)\n");
+                // printf("GO preset 1 (short press)\n");
             }
             else
             {
-                printf("Preset 1 released after long press\n");
+                // printf("Preset 1 released after long press\n");
             }
         }
 
@@ -257,7 +254,7 @@ static void handle_preset_code(uint8_t code)
         selected_preset = 2;
         press_start_time = now;
         long_press_action_done = false;
-        printf("Pressed preset 2\n");
+        // printf("Pressed preset 2\n");
         return;
     }
 
@@ -271,7 +268,7 @@ static void handle_preset_code(uint8_t code)
             xQueueSend(motorQueue, &cmd, 0);
             long_press_action_done = true;
 
-            printf("SAVE preset 2 (long press)\n");
+            // printf("SAVE preset 2 (long press)\n");
         }
         return;
     }
@@ -288,11 +285,11 @@ static void handle_preset_code(uint8_t code)
                 motor_cmd_t cmd = MOTOR_CMD_GOTO_POSITION;
                 xQueueSend(motorQueue, &cmd, 0);
 
-                printf("GO preset 2 (short press)\n");
+                // printf("GO preset 2 (short press)\n");
             }
             else
             {
-                printf("Preset 2 released after long press\n");
+                // printf("Preset 2 released after long press\n");
             }
         }
 
@@ -308,7 +305,7 @@ static void handle_preset_code(uint8_t code)
         selected_preset = 3;
         press_start_time = now;
         long_press_action_done = false;
-        printf("Pressed preset 3\n");
+        // printf("Pressed preset 3\n");
         return;
     }
 
@@ -322,7 +319,7 @@ static void handle_preset_code(uint8_t code)
             xQueueSend(motorQueue, &cmd, 0);
             long_press_action_done = true;
 
-            printf("SAVE preset 3 (long press)\n");
+            // printf("SAVE preset 3 (long press)\n");
         }
         return;
     }
@@ -339,11 +336,11 @@ static void handle_preset_code(uint8_t code)
                 motor_cmd_t cmd = MOTOR_CMD_GOTO_POSITION;
                 xQueueSend(motorQueue, &cmd, 0);
 
-                printf("GO preset 3 (short press)\n");
+                // printf("GO preset 3 (short press)\n");
             }
             else
             {
-                printf("Preset 3 released after long press\n");
+                // printf("Preset 3 released after long press\n");
             }
         }
 
@@ -362,13 +359,13 @@ static void dwin_rx_task(void *arg)
     {
         int len = uart_read_bytes(DWIN_UART, data, sizeof(data), pdMS_TO_TICKS(20));
 
-        if (len > 0)
-        {
-            printf("RX (%d): ", len);
-            for (int i = 0; i < len; i++)
-                printf("%02X ", data[i]);
-            printf("\n");
-        }
+        // if (len > 0)
+        // {
+        //     printf("RX (%d): ", len);
+        //     for (int i = 0; i < len; i++)
+        //         printf("%02X ", data[i]);
+        //     printf("\n");
+        // }
 
         // -------------------------------------------------------
         //  FIX: Process ALL packets inside the received buffer
@@ -403,7 +400,7 @@ static void dwin_rx_task(void *arg)
                     else if (code == 0x03 || code == 0x04)
                     {
                         cmd = MOTOR_CMD_STOP;
-                        printf("STOP\r\n");
+                        // printf("STOP\r\n");
                     }
                     else
                     {
@@ -425,7 +422,7 @@ static void dwin_rx_task(void *arg)
                 {
                     if (code == 0x00)
                     {
-                        printf("Calibrate\r\n");
+                        // printf("Calibrate\r\n");
                         motor_cmd_t cmd = MOTOR_CMD_CALIBRATE;
                         xQueueSend(motorQueue, &cmd, 0);
                     }
@@ -494,9 +491,9 @@ void display_task(void *arg)
 
                 prevMappedValue = mappedValue;
 
-                printf("Height: %f\n", current_height_mm);
-                printf("Mapped Value = %d\r\n", mappedValue);
-                printf("bottom=%f  top=%f\n", bottom_limit_mm, top_limit_mm);
+                // printf("Height: %f\n", current_height_mm);
+                // printf("Mapped Value = %d\r\n", mappedValue);
+                // printf("bottom=%f  top=%f\n", bottom_limit_mm, top_limit_mm);
             }
 
             if (mappedNumValue != prevMappedNumValue)
@@ -504,7 +501,7 @@ void display_task(void *arg)
                 setVP(0x8100, mappedNumValue);
                 prevMappedNumValue = mappedNumValue;
 
-                printf("Mapped Num Value = %d\r\n", mappedNumValue);
+                // printf("Mapped Num Value = %d\r\n", mappedNumValue);
             }
         }
 
@@ -524,6 +521,7 @@ void display_task(void *arg)
             case DISP_CMD_SET_VP:
                 setVP(msg.addr, msg.value);
                 break;
+                
             }
         }
 
