@@ -12,6 +12,7 @@
 #include "dist.h"
 #include "nvsManager.h"
 #include "PC_DATA.h"
+#include "Daly_BMS.h"
 
 #define BUF_SIZE (1024)
 
@@ -20,6 +21,7 @@
 
 QueueHandle_t motorQueue;
 QueueHandle_t displayQueue;
+QueueHandle_t pcQueue;
 
 void UartInit()
 {
@@ -34,6 +36,8 @@ void UartInit()
     uart_param_config(UART_NUM_0, &uart0_config);
     uart_driver_install(UART_NUM_0, BUF_SIZE, 0, 0, NULL, 0);
     uart_flush_input(UART_NUM_0);
+    // uart_driver_install(UART_NUM_0, BUF_SIZE, 256, 0, NULL, 0);
+    // uart_flush_input(UART_NUM_0); // clear any junk
 
     // --- Configure UART1 (TX=GPIO17, RX=GPIO18) ---
     const uart_port_t uart1_num = DWIN_UART;
@@ -102,12 +106,9 @@ void app_main(void)
 
     motorQueue = xQueueCreate(10, sizeof(motor_cmd_t));     // Que Creation for Motor
     displayQueue = xQueueCreate(10, sizeof(display_msg_t)); // Que Creation for Display
+    pcQueue = xQueueCreate(10, sizeof(pc_msg_t));
     // Starting Log
-    ESP_LOGE("TEST", "ERROR LOG visible");
-    ESP_LOGW("TEST", "WARN LOG visible");
-    ESP_LOGI("TEST", "INFO LOG visible");
-    printf("PRINTF visible\n");
-
+    ESP_LOGW("Cow", "V2.1");
     vTaskDelay(300); // Dwin Startup Delay
 
     int8_t theme = loadTheme();    // load Theme From NVS
@@ -120,9 +121,9 @@ void app_main(void)
     }
     else
     {
-    const char *defaultName = "CarenationPC";
-    saveDevicename(defaultName);
-    display_device_name(0x1800, defaultName);
+        const char *defaultName = "CarenationPC";
+        saveDevicename(defaultName);
+        display_device_name(0x1800, defaultName);
     }
 
     // Load Limits from NVS
@@ -141,7 +142,9 @@ void app_main(void)
 
     start_distance_task(); // Task to find the distance
 
-    start_animDisp_task(); // Task to change
+    start_animDisp_task(); // Task to change Display Pages/Themes
 
-    start_pc_task(); // TAsk to Communicate with PC
+    start_pc_task(); // Task to Communicate with PC Over UART
+
+    start_bms_task(); // Task to Communicate with BMS
 }

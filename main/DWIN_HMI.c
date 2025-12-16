@@ -69,6 +69,32 @@ static inline int constrainInt(int x, int a, int b)
         return x;
 }
 
+void display_set_page(uint16_t page)
+{
+    display_msg_t msg = {
+        .cmd = DISP_CMD_SET_PAGE,
+        .value = page};
+    xQueueSend(displayQueue, &msg, 0);
+}
+
+void display_set_text(uint16_t addr, const char *txt)
+{
+    display_msg_t msg = {
+        .cmd = DISP_CMD_SET_TEXT,
+        .addr = addr};
+    strncpy(msg.text, txt, sizeof(msg.text));
+    xQueueSend(displayQueue, &msg, 0);
+}
+
+void display_set_vp(uint16_t addr, uint16_t value)
+{
+    display_msg_t msg = {
+        .cmd = DISP_CMD_SET_VP,
+        .addr = addr,
+        .value = value};
+    xQueueSend(displayQueue, &msg, 0);
+}
+
 void updatePackMeasurementsOnHMI(float voltage, float current, float soc)
 {
     char buffer[16];
@@ -76,7 +102,7 @@ void updatePackMeasurementsOnHMI(float voltage, float current, float soc)
     // Format SoC (State of Charge) as integer string
     int socInt = (int)round(soc);
     snprintf(buffer, sizeof(buffer), "%d     ", socInt);
-    setText(0x2000, buffer);
+    display_set_text(0x2000, buffer);
 
     int mappedValue = (int)constrainInt(((soc - 1) / 20) + 1, 1, 5); // Map SoC to 1-5 range
 
@@ -88,15 +114,15 @@ void updatePackMeasurementsOnHMI(float voltage, float current, float soc)
 
     if (current > 0)
     {                            // charging
-        setText(0x4000, buffer); // watts on charging display
-        setText(0x6000, "0           ");
-        setVP(0x3100, mappedValue + 5);
+        display_set_text(0x4000, buffer); // watts on charging display
+        display_set_text(0x6000, "0           ");
+        display_set_text(0x3100, mappedValue + 5);
     }
     else
     {                            // discharging
-        setText(0x6000, buffer); // watts on discharging display
-        setText(0x4000, "0           ");
-        setVP(0x3100, mappedValue);
+        display_set_text(0x6000, buffer); // watts on discharging display
+        display_set_text(0x4000, "0           ");
+        display_set_vp(0x3100, mappedValue);
     }
 }
 
@@ -105,13 +131,13 @@ void updatePackTempOnHMI(int tempMin, int tempMax, float tempAverage)
     char buffer[8];
 
     snprintf(buffer, sizeof(buffer), "%d", tempMin);
-    setText(0x7000, buffer);
+    display_set_text(0x7000, buffer);
 
     snprintf(buffer, sizeof(buffer), "%d", tempMax);
-    setText(0x8000, buffer);
+    display_set_text(0x8000, buffer);
 
     snprintf(buffer, sizeof(buffer), "%.1f", tempAverage);
-    setText(0x3000, buffer);
+    display_set_text(0x3000, buffer);
 }
 
 float mapf(float x, float in_min, float in_max, float out_min, float out_max)
@@ -164,32 +190,6 @@ int map_with_hysteresis(float height, int steps)
         (*prev)++;
 
     return constrain(*prev, 1, steps);
-}
-
-void display_set_page(uint16_t page)
-{
-    display_msg_t msg = {
-        .cmd = DISP_CMD_SET_PAGE,
-        .value = page};
-    xQueueSend(displayQueue, &msg, 0);
-}
-
-void display_set_text(uint16_t addr, const char *txt)
-{
-    display_msg_t msg = {
-        .cmd = DISP_CMD_SET_TEXT,
-        .addr = addr};
-    strncpy(msg.text, txt, sizeof(msg.text));
-    xQueueSend(displayQueue, &msg, 0);
-}
-
-void display_set_vp(uint16_t addr, uint16_t value)
-{
-    display_msg_t msg = {
-        .cmd = DISP_CMD_SET_VP,
-        .addr = addr,
-        .value = value};
-    xQueueSend(displayQueue, &msg, 0);
 }
 
 static void handle_preset_code(uint8_t code)

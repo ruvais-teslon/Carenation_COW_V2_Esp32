@@ -2,6 +2,13 @@
 #include "driver/gpio.h"
 #include "nvs_flash.h"
 #include "nvs.h"
+#include "driver/adc.h"
+#include "esp_adc_cal.h"
+#include <math.h>
+#include "stdio.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/queue.h"
 
 #define PROXIMITY_TOP 13
 #define PROXIMITY_BOTTOM 14

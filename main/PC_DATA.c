@@ -18,7 +18,7 @@ void display_device_name(uint16_t vp, const char *name)
 {
     char buf[DISP_NAME_LEN + 1];
 
-    memset(buf, ' ', DISP_NAME_LEN);   // fill with spaces
+    memset(buf, ' ', DISP_NAME_LEN); // fill with spaces
 
     size_t len = strlen(name);
     if (len > DISP_NAME_LEN)
@@ -27,29 +27,8 @@ void display_device_name(uint16_t vp, const char *name)
     memcpy(buf, name, len);
 
     buf[DISP_NAME_LEN] = '\0';
-    
-    for (int i = 0; i < DISP_NAME_LEN; i++)
-    {
-        if (buf[i] == ' ')
-            putchar('_');        // visualize spaces
-        else if (buf[i] == '\0')
-            putchar('0');        // visualize NULL
-        else
-            putchar(buf[i]);
-    }
-    printf("]\n");
-
-    printf("[DISPLAY] Padded buf (hex): ");
-    for (int i = 0; i < DISP_NAME_LEN; i++)
-    {
-        printf("%02X ", (uint8_t)buf[i]);
-    }
-    printf("\n");
-    // --------------------------------
-
     display_set_text(vp, buf);
 }
-
 
 void updateBinaryDataOnHMI(uint8_t cpu, uint8_t cpuSpeed, uint8_t ramUsed,
                            uint8_t ramPercent, uint8_t ramTotal, uint8_t diskUsed,
@@ -179,6 +158,86 @@ static void parseBinaryData(uint8_t *rx, int len)
     }
 }
 
+void updatePackMeasurementsOnPC(float voltage, float current, float soc)
+{
+    if (!pcConnected)
+        return;
+
+    char bmsData[128];
+
+    snprintf(bmsData, sizeof(bmsData),
+             "basic,%.2f,%.2f,%.2f\r\n",
+             voltage, current, soc);
+
+    uart_write_bytes(PC_UART, bmsData, strlen(bmsData));
+}
+
+void updatePackTempOnPC(int tempMin, int tempMax, float tempAverage)
+{
+    if (!pcConnected)
+        return;
+
+    char tempData[128];
+
+    snprintf(tempData, sizeof(tempData),
+             "temp,%d,%d,%.2f\r\n",
+             tempMin, tempMax, tempAverage);
+
+    uart_write_bytes(PC_UART, tempData, strlen(tempData));
+}
+
+void pc_send_pack_data(float voltage, float current, float soc)
+{
+    if (pcQueue == NULL)
+        return;
+
+    pc_msg_t msg = {
+        .type = PC_MSG_PACK,
+        .pack = {
+            .voltage = voltage,
+            .current = current,
+            .soc = soc}};
+
+    xQueueSend(pcQueue, &msg, 0);
+}
+
+void pc_send_temp_data(int min_temp, int max_temp, float avg_temp)
+{
+    if (pcQueue == NULL)
+        return;
+
+    pc_msg_t msg = {
+        .type = PC_MSG_TEMP,
+        .temp = {
+            .min_temp = min_temp,
+            .max_temp = max_temp,
+            .avg_temp = avg_temp}};
+
+    xQueueSend(pcQueue, &msg, 0);
+}
+
+void pc_send_pack_invalid(void)
+{
+    if (pcQueue == NULL)
+        return;
+
+    pc_msg_t msg = {
+        .type = PC_MSG_PACK_INVALID};
+
+    xQueueSend(pcQueue, &msg, 0);
+}
+
+void pc_send_temp_invalid(void)
+{
+    if (pcQueue == NULL)
+        return;
+
+    pc_msg_t msg = {
+        .type = PC_MSG_TEMP_INVALID};
+
+    xQueueSend(pcQueue, &msg, 0);
+}
+
 static void pcTask(void *arg)
 {
 
@@ -206,6 +265,35 @@ static void pcTask(void *arg)
             }
         }
 
+        pc_msg_t msg;
+        while (xQueueReceive(pcQueue, &msg, 0)) // NON-blocking
+        {
+            switch (msg.type)
+            {
+            case PC_MSG_PACK:
+                updatePackMeasurementsOnPC(msg.pack.voltage,
+                                           msg.pack.current,
+                                           msg.pack.soc);
+                break;
+
+            case PC_MSG_TEMP:
+                updatePackTempOnPC(msg.temp.min_temp,
+                                   msg.temp.max_temp,
+                                   msg.temp.avg_temp);
+                break;
+
+            case PC_MSG_PACK_INVALID:
+                    uart_write_bytes(PC_UART,"basic,--,--,--\r\n",
+                                     strlen("basic,--,--,--\r\n"));
+                break;
+
+            case PC_MSG_TEMP_INVALID:
+                    uart_write_bytes(PC_UART,"temp,--,--,--\r\n",
+                                     strlen("temp,--,--,--\r\n"));
+                break;
+            }
+        }
+
         uint32_t now = esp_timer_get_time() / 1000;
 
         if (pcConnected && (now - lastPCReadTime > PC_READ_INTERVAL_MS * 2))
@@ -215,7 +303,7 @@ static void pcTask(void *arg)
             display_set_page(theme == 1 ? 21 : 18);
         }
 
-        if (pcJustConnected)
+        if (pcJustConnected && !calibrating)
         {
             pcJustConnected = false;
             int8_t theme = loadTheme();

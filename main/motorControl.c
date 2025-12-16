@@ -2,10 +2,7 @@
 #include "PC_DATA.h"
 #include "DWIN_HMI.h"
 #include "nvsManager.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/queue.h"
-#include "driver/ledc.h"
+
 
 motor_direction_t current_dir = MOTOR_DIR_FORWARD;
 bool calibrating = false;

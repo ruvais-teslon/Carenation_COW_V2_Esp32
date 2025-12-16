@@ -41,3 +41,5 @@ void start_animDisp_task();
 
 void display_set_page(uint16_t page);
 void display_set_text(uint16_t addr, const char *txt);
+void updatePackMeasurementsOnHMI(float voltage, float current, float soc);
+void updatePackTempOnHMI(int tempMin, int tempMax, float tempAverage);
