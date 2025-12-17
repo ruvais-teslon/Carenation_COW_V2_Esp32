@@ -1,6 +1,11 @@
 #include "Daly_BMS.h"
 #include "DWIN_HMI.h"
 #include "PC_DATA.h"
+#include "motorControl.h"
+
+bool motorLockedLowSOC = false;
+static int lastAlertSOC = 100; // start high
+static int prevSOC = -1;
 
 void daly_send_command(uint8_t cmd)
 {
@@ -74,10 +79,79 @@ bool getPackTemp(void)
     return true;
 }
 
+void handleSOCLogic(int soc)
+{
+    if (soc < 0)
+        return;
+
+    /* ---------- HARD LOCK BELOW 3% ---------- */
+    if (soc < 3)
+    {
+        motorLockedLowSOC = true;
+        motor_stop();
+        display_set_page(12); // critical SOC alert change page with connect charger also add beep
+        beepHMI();
+        vTaskDelay(pdMS_TO_TICKS(1000));
+        prevSOC = soc;
+        return;
+    }
+
+    /* ---------- UNLOCK WHEN SOC RECOVERS ---------- */
+    if (motorLockedLowSOC && soc >= 3)
+    {
+        motorLockedLowSOC = false;
+
+        // Re-sync alert level but DO NOT trigger alert
+        lastAlertSOC = soc - (soc % 5);
+        prevSOC = soc;
+        return;
+    }
+
+    /* ---------- ONLY CHECK WHEN SOC IS DROPPING ---------- */
+    if (prevSOC != -1 && soc < prevSOC)
+    {
+        if (prevSOC > 30 && soc <= 30)
+        {
+            lastAlertSOC = 30;
+            display_set_page(12); // SOC warning alert
+
+            vTaskDelay(pdMS_TO_TICKS(2000));
+
+            int8_t theme = loadTheme();
+            if (pcConnected)
+            {
+                display_set_page(theme == 1 ? 5 : 1);
+            }
+            else
+            {
+                display_set_page(theme == 1 ? 21 : 18);
+            }
+        }
+        /* Subsequent 5% drops */
+        else if (soc <= 30 && soc <= (lastAlertSOC - 5))
+        {
+            lastAlertSOC = soc - (soc % 5);
+            display_set_page(12); // SOC warning alert
+
+            vTaskDelay(pdMS_TO_TICKS(2000));
+
+            int8_t theme = loadTheme();
+            if (pcConnected)
+            {
+                display_set_page(theme == 1 ? 5 : 1);
+            }
+            else
+            {
+                display_set_page(theme == 1 ? 21 : 18);
+            }
+        }
+    }
+
+    prevSOC = soc;
+}
+
 static void bmsTask(void *arg)
 {
-    const TickType_t period = pdMS_TO_TICKS(60000);
-    TickType_t lastWake = xTaskGetTickCount();
 
     while (1)
     {
@@ -85,6 +159,7 @@ static void bmsTask(void *arg)
         if (pack_ok)
         {
             updatePackMeasurementsOnHMI(g_pack.pack_voltage, g_pack.pack_current, g_pack.pack_soc);
+            handleSOCLogic((int)g_pack.pack_soc);
             if (pcConnected)
             {
                 pc_send_pack_data(g_pack.pack_voltage,
@@ -102,7 +177,8 @@ static void bmsTask(void *arg)
             display_set_text(0x6000, "--     ");
             display_set_text(0x4000, "--     ");
             display_set_text(0x3100, "--     ");
-            if(pcConnected){
+            if (pcConnected)
+            {
                 pc_send_pack_invalid();
             }
             // printf("[PACK] read failed\n");
@@ -130,13 +206,21 @@ static void bmsTask(void *arg)
             display_set_text(0x7000, "--     ");
             display_set_text(0x8000, "--     ");
             display_set_text(0x3000, "--     ");
-            if(pcConnected){
+            if (pcConnected)
+            {
                 pc_send_temp_invalid();
             }
             // printf("[TEMP] read failed\n");
         }
 
-        vTaskDelayUntil(&lastWake, period);
+        if (motorLockedLowSOC)
+        {
+            vTaskDelay(pdMS_TO_TICKS(1000)); // 1 sec when SOC < 3%
+        }
+        else
+        {
+            vTaskDelay(pdMS_TO_TICKS(60000)); // 60 sec normal
+        }
     }
 }
 

@@ -5,6 +5,7 @@
 
 #define BMS_UART UART_NUM_2
 
+extern bool motorLockedLowSOC;
 typedef enum {
     VOUT_IOUT_SOC = 0x90,
     MIN_MAX_TEMPERATURE = 0x92,

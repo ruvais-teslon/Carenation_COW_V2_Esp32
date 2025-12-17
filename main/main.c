@@ -26,18 +26,18 @@ QueueHandle_t pcQueue;
 void UartInit()
 {
     // --- Configure UART0 ---
-    uart_config_t uart0_config = {
-        .baud_rate = 9600,
-        .data_bits = UART_DATA_8_BITS,
-        .parity = UART_PARITY_DISABLE,
-        .stop_bits = UART_STOP_BITS_1,
-        .flow_ctrl = UART_HW_FLOWCTRL_DISABLE};
+    // uart_config_t uart0_config = {
+    //     .baud_rate = 9600,
+    //     .data_bits = UART_DATA_8_BITS,
+    //     .parity = UART_PARITY_DISABLE,
+    //     .stop_bits = UART_STOP_BITS_1,
+    //     .flow_ctrl = UART_HW_FLOWCTRL_DISABLE};
 
-    uart_param_config(UART_NUM_0, &uart0_config);
-    uart_driver_install(UART_NUM_0, BUF_SIZE, 0, 0, NULL, 0);
-    uart_flush_input(UART_NUM_0);
-    // uart_driver_install(UART_NUM_0, BUF_SIZE, 256, 0, NULL, 0);
-    // uart_flush_input(UART_NUM_0); // clear any junk
+    // uart_param_config(UART_NUM_0, &uart0_config);
+    // uart_driver_install(UART_NUM_0, BUF_SIZE, 0, 0, NULL, 0);
+    // uart_flush_input(UART_NUM_0);
+    uart_driver_install(UART_NUM_0, BUF_SIZE, 256, 0, NULL, 0);
+    uart_flush_input(UART_NUM_0); // clear any junk
 
     // --- Configure UART1 (TX=GPIO17, RX=GPIO18) ---
     const uart_port_t uart1_num = DWIN_UART;
@@ -109,11 +109,14 @@ void app_main(void)
     pcQueue = xQueueCreate(10, sizeof(pc_msg_t));
     // Starting Log
     ESP_LOGW("Cow", "V2.1");
-    vTaskDelay(300); // Dwin Startup Delay
 
+    vTaskDelay(300); // Dwin Startup Delay
+    setPage(0); //Startup Animation
+    vTaskDelay(300); //Animation Delay
     int8_t theme = loadTheme();    // load Theme From NVS
     setPage(theme == 1 ? 21 : 18); // Set Page based on theme
 
+    //Load Device Name from NVS
     char storedName[21];
     if (loadDevicename(storedName, sizeof(storedName)))
     {

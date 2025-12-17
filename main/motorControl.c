@@ -2,12 +2,13 @@
 #include "PC_DATA.h"
 #include "DWIN_HMI.h"
 #include "nvsManager.h"
-
+#include "Daly_BMS.h"
 
 motor_direction_t current_dir = MOTOR_DIR_FORWARD;
 bool calibrating = false;
 int8_t initial_calib = 0;
-
+bool motorRunning = 0;
+static uint32_t last_cmd_time = 0;
 
 void motorInit()
 {
@@ -56,6 +57,7 @@ void motor_set_speed(int duty)
 
 void motor_forward()
 {
+    motorRunning = 1;
     current_dir = MOTOR_DIR_FORWARD;
     motorSleepContrl(MOTOR_WAKE);
     motor_set_direction(MOTOR_DIR_FORWARD);
@@ -64,6 +66,7 @@ void motor_forward()
 
 void motor_backward()
 {
+    motorRunning = 1;
     current_dir = MOTOR_DIR_BACKWARD;
     motorSleepContrl(MOTOR_WAKE);
     motor_set_direction(MOTOR_DIR_BACKWARD);
@@ -72,6 +75,7 @@ void motor_backward()
 
 void motor_stop(void)
 {
+    motorRunning = 0;
     current_dir = 3;
     motor_set_speed(0);
     motorSleepContrl(MOTOR_SLEEP);
@@ -220,6 +224,11 @@ void motor_task(void *arg)
     motor_cmd_t cmd;
     while (1)
     {
+        if (motorLockedLowSOC && motorRunning)
+        {
+            motor_stop();
+        }
+
         if (!calibrating) // disable safety during calibration
         {
             if (current_dir == MOTOR_DIR_FORWARD && hit_top_limit())
@@ -229,8 +238,9 @@ void motor_task(void *arg)
                 motor_stop();
         }
 
-        if (xQueueReceive(motorQueue, &cmd, 10 / portTICK_PERIOD_MS))
+        if (xQueueReceive(motorQueue, &cmd, pdMS_TO_TICKS(10)))
         {
+            last_cmd_time = xTaskGetTickCount();
             switch (cmd)
             {
             case MOTOR_CMD_FORWARD:
@@ -260,6 +270,16 @@ void motor_task(void *arg)
             {
                 int8_t theme = loadTheme();
                 display_set_page(theme == 1 ? 16 : 17);
+
+                //add page in Dwin with 2 dot please wait if pc not connected 
+                // if (pcConnected)
+                // {
+                //     display_set_page(theme == 1 ? 16 : 17);
+                // }
+                // else
+                // {
+                //     display_set_page(theme == 1 ? 21 : 18);
+                // }
 
                 move_to_position(target_position_mm);
 
@@ -298,6 +318,12 @@ void motor_task(void *arg)
                 run_calibration();
                 break;
             }
+        }
+
+        // Stop Motor if Running without Que
+        if (motorRunning && (xTaskGetTickCount() - last_cmd_time) > pdMS_TO_TICKS(500))
+        {
+            motor_stop();
         }
     }
 }

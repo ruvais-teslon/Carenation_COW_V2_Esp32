@@ -428,6 +428,7 @@ static void dwin_rx_task(void *arg)
                     }
                 }
 
+                // ------------------- DARK/LIGHT THEME ------------------
                 else if (vp == DWIN_VP_THEME)
                 {
                     if (pkt[8] == 0x01)
@@ -506,7 +507,7 @@ void display_task(void *arg)
         }
 
         display_msg_t msg;
-        while (xQueueReceive(displayQueue, &msg, 0)) // non-blocking
+        while (xQueueReceive(displayQueue, &msg, 0)) 
         {
             switch (msg.cmd)
             {
